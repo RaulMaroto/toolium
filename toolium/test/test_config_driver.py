@@ -21,13 +21,22 @@ import os
 import mock
 import pytest
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-from selenium.webdriver.firefox.options import Options
 
 from toolium.config_driver import ConfigDriver
 from toolium.config_parser import ExtendedConfigParser
 from toolium.driver_wrappers_pool import DriverWrappersPool
 
-pytest.skip("DesiredCapabilities must be updated to be compatible with Selenium 4", allow_module_level=True)
+
+from selenium.webdriver.common.options import ArgOptions as RemoteOptions
+from selenium.webdriver.edge.service import Service as EdgeService
+from selenium.webdriver.firefox.options import Options as FirefoxOptions
+from selenium.webdriver.firefox.service import Service as FirefoxService
+from selenium.webdriver.ie.service import Service as IEService
+from selenium.webdriver.safari.service import Service as SafariService
+from selenium.webdriver.safari.options import Options as Safari
+
+
+# pytest.skip("DesiredCapabilities must be updated to be compatible with Selenium 4", allow_module_level=True)
 
 
 @pytest.fixture
@@ -83,9 +92,15 @@ def test_create_driver_remote(config, utils):
     assert driver == 'remote driver mock'
 
 
+# TODO: separar y hacer dos tests unitarios para probar ambos métodos: _create_local_driver y _setup_firefox
 @mock.patch('toolium.config_driver.FirefoxOptions')
+@mock.patch('toolium.config_driver.FirefoxService')
 @mock.patch('toolium.config_driver.webdriver')
+<<<<<<< Updated upstream
 def test_create_local_driver_firefox_no_gecko_path(webdriver_mock, options, config, utils):
+=======
+def test_create_local_driver_firefox(webdriver_mock, service, options, config, utils):
+>>>>>>> Stashed changes
     config.set('Driver', 'type', 'firefox')
     utils.get_driver_name.return_value = 'firefox'
     config_driver = ConfigDriver(config, utils)
@@ -93,10 +108,15 @@ def test_create_local_driver_firefox_no_gecko_path(webdriver_mock, options, conf
     DriverWrappersPool.output_directory = ''
 
     config_driver._create_local_driver()
+<<<<<<< Updated upstream
     expected_capabilities = DesiredCapabilities.FIREFOX.copy()
     webdriver_mock.Firefox.assert_called_once_with(capabilities=expected_capabilities,
                                                    firefox_profile='firefox profile', executable_path=None,
                                                    firefox_options=options(), log_path='geckodriver.log')
+=======
+
+    webdriver_mock.Firefox.assert_called_once_with(service=service(), options=options())
+>>>>>>> Stashed changes
 
 
 @mock.patch('toolium.config_driver.FirefoxOptions')
@@ -107,6 +127,7 @@ def test_create_local_driver_firefox_gecko_path(webdriver_mock, options, config,
     utils.get_driver_name.return_value = 'firefox'
     config_driver = ConfigDriver(config, utils)
     config_driver._create_firefox_profile = lambda: 'firefox profile'
+    config_driver._setup_firefox = mock.MagicMock()  #cambio que hay que hacer
     DriverWrappersPool.output_directory = ''
 
     config_driver._create_local_driver()
@@ -131,7 +152,7 @@ def test_create_local_driver_firefox_binary(webdriver_mock, config, utils):
     # Check that firefox options contain the firefox binary
     args, kwargs = webdriver_mock.Firefox.call_args
     firefox_options = kwargs['firefox_options']
-    assert isinstance(firefox_options, Options)
+    assert isinstance(firefox_options, FirefoxOptions)
     if isinstance(firefox_options.binary, str):
         assert firefox_options.binary == '/tmp/firefox'  # Selenium 2
     else:
@@ -270,7 +291,12 @@ def test_create_local_driver_unknown_driver(config, utils):
 def test_create_local_driver_capabilities(webdriver_mock, options, config, utils):
     config.set('Driver', 'type', 'firefox')
     config.add_section('Capabilities')
+<<<<<<< Updated upstream
     config.set('Capabilities', 'browserVersion', '45')
+=======
+    config.set('Capabilities', 'marionette', 'false')
+    config.set('Capabilities', 'version', '45')
+>>>>>>> Stashed changes
     utils.get_driver_name.return_value = 'firefox'
     config_driver = ConfigDriver(config, utils)
     config_driver._create_firefox_profile = lambda: 'firefox profile'
@@ -278,14 +304,20 @@ def test_create_local_driver_capabilities(webdriver_mock, options, config, utils
 
     config_driver._create_local_driver()
     expected_capabilities = DesiredCapabilities.FIREFOX.copy()
+<<<<<<< Updated upstream
     expected_capabilities['browserVersion'] = '45'
+=======
+    expected_capabilities['marionette'] = False
+    expected_capabilities['version'] = '45'
+>>>>>>> Stashed changes
     webdriver_mock.Firefox.assert_called_once_with(capabilities=expected_capabilities,
                                                    firefox_profile='firefox profile', executable_path=None,
                                                    firefox_options=options(), log_path='geckodriver.log')
 
 
+@mock.patch('toolium.config_driver.FirefoxOptions')
 @mock.patch('toolium.config_driver.webdriver')
-def test_create_remote_driver_firefox(webdriver_mock, config, utils):
+def test_create_remote_driver_firefox(webdriver_mock, options, config, utils):
     config.set('Driver', 'type', 'firefox')
     server_url = 'http://10.20.30.40:5555'
     utils.get_server_url.return_value = server_url
@@ -299,12 +331,12 @@ def test_create_remote_driver_firefox(webdriver_mock, config, utils):
     config_driver._create_firefox_profile = mock.MagicMock(return_value=ProfileMock())
 
     config_driver._create_remote_driver()
-    capabilities = DesiredCapabilities.FIREFOX.copy()
-    capabilities['firefox_profile'] = 'encoded profile'
+
     webdriver_mock.Remote.assert_called_once_with(command_executor='%s/wd/hub' % server_url,
-                                                  desired_capabilities=capabilities)
+                                                  options=options())
 
 
+# @mock.patch('toolium.config_driver.ChromeOptions')
 @mock.patch('toolium.config_driver.webdriver')
 def test_create_remote_driver_chrome(webdriver_mock, config, utils):
     config.set('Driver', 'type', 'chrome')
@@ -315,14 +347,15 @@ def test_create_remote_driver_chrome(webdriver_mock, config, utils):
 
     # Chrome options mock
     chrome_options = mock.MagicMock()
-    chrome_options.to_capabilities.return_value = {'goog:chromeOptions': 'chrome options'}
+    # chrome_options.to_capabilities.return_value = {'goog:chromeOptions': 'chrome options'}
+    capabilities = DesiredCapabilities.CHROME.copy()
+    chrome_options.capabilities.return_value = capabilities
     config_driver._create_chrome_options = mock.MagicMock(return_value=chrome_options)
 
     config_driver._create_remote_driver()
-    capabilities = DesiredCapabilities.CHROME.copy()
-    capabilities['goog:chromeOptions'] = 'chrome options'
+    # capabilities['goog:chromeOptions'] = 'chrome options'
     webdriver_mock.Remote.assert_called_once_with(command_executor='%s/wd/hub' % server_url,
-                                                  desired_capabilities=capabilities)
+                                                  options=chrome_options)
 
 
 @mock.patch('toolium.config_driver.webdriver')
@@ -490,8 +523,8 @@ def test_create_remote_driver_version_platform(webdriver_mock, config, utils):
 
     config_driver._create_remote_driver()
     capabilities = DesiredCapabilities.INTERNETEXPLORER
-    capabilities['browserVersion'] = '11'
-    capabilities['platformName'] = 'WIN10'
+    capabilities['version'] = '11'
+    capabilities['platform'] = 'WIN10'
     webdriver_mock.Remote.assert_called_once_with(command_executor='%s/wd/hub' % server_url,
                                                   desired_capabilities=capabilities)
 
@@ -506,7 +539,7 @@ def test_create_remote_driver_version(webdriver_mock, config, utils):
 
     config_driver._create_remote_driver()
     capabilities = DesiredCapabilities.INTERNETEXPLORER.copy()
-    capabilities['browserVersion'] = '11'
+    capabilities['version'] = '11'
     webdriver_mock.Remote.assert_called_once_with(command_executor='%s/wd/hub' % server_url,
                                                   desired_capabilities=capabilities)
 
@@ -515,7 +548,7 @@ def test_create_remote_driver_version(webdriver_mock, config, utils):
 def test_create_remote_driver_capabilities(webdriver_mock, config, utils):
     config.set('Driver', 'type', 'iexplore-11')
     config.add_section('Capabilities')
-    config.set('Capabilities', 'browserVersion', '11')
+    config.set('Capabilities', 'version', '11')
     server_url = 'http://10.20.30.40:5555'
     utils.get_server_url.return_value = server_url
     utils.get_driver_name.return_value = 'iexplore'
@@ -523,7 +556,7 @@ def test_create_remote_driver_capabilities(webdriver_mock, config, utils):
 
     config_driver._create_remote_driver()
     capabilities = DesiredCapabilities.INTERNETEXPLORER.copy()
-    capabilities['browserVersion'] = '11'
+    capabilities['version'] = '11'
     webdriver_mock.Remote.assert_called_once_with(command_executor='%s/wd/hub' % server_url,
                                                   desired_capabilities=capabilities)
 
@@ -585,7 +618,7 @@ def test_add_firefox_arguments(config, utils):
     config.add_section('FirefoxArguments')
     config.set('FirefoxArguments', '-private', '')
     config_driver = ConfigDriver(config, utils)
-    firefox_options = Options()
+    firefox_options = FirefoxOptions()
 
     config_driver._add_firefox_arguments(firefox_options)
     assert firefox_options.arguments == ['-private']
